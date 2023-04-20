@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class CustomExternalApi {
-    public static final String API_URL = "http://192.168.1.62:8082";
+    public static final String API_URL = System.getenv("EXTERNAL_API_URL");
     private final Logger log = LoggerFactory.getLogger(CustomExternalApi.class);
     private ObjectMapper objectMapper = new ObjectMapper();
 
