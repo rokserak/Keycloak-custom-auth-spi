@@ -39,66 +39,17 @@ public class CustomAuthenticator implements Authenticator {
     public void authenticate(AuthenticationFlowContext context) {
         log.info("CUSTOMER PROVIDER authenticate");
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
-        String username = formData.getFirst("username");
-        String password = formData.getFirst("password");
-        log.debug("AUTHENTICATE custom provider: " + username);
-
-        User user = null;
-        try {
-            user = callExternalApi(username, password);
-        } catch (IOException e) {
-            log.error("Errore durante la chiamata all'API esterna", e);
-            context.failure(AuthenticationFlowError.INTERNAL_ERROR);
-        }
-
-        if (user != null) {
-            try {
-                UserModel userModel = context.getSession().users().getUserByUsername(context.getRealm(), user.getUsername());
-                if (userModel == null) {
-                    // create user if not exists
-                    userModel = context.getSession().users().addUser(context.getRealm(), user.getUsername());
-                }
-                userModel.setEmail(user.getEmail());
-                userModel.setFirstName(user.getFirstName());
-                userModel.setLastName(user.getLastName());
-                userModel.setEnabled(true);
-                userModel.setSingleAttribute("extra-key", "extra-value");
-                for (String role : user.getRoles()) {
-                    userModel.grantRole(context.getRealm().getRole(role));
-                }
-                //userModel.grantRole(context.getRealm().getRole("user"));
-                context.setUser(userModel);
-            }
-            catch (Exception e) {
-                log.error("Authentication error", e);
-                context.failure(AuthenticationFlowError.INTERNAL_ERROR);
-            }
-            context.success();
-        } else {
-            // User not authenticated set unauthorized error
-            context.failure(AuthenticationFlowError.INVALID_USER, Response.status(Response.Status.UNAUTHORIZED)
-                    .entity("You must be authenticated to access this resource.")
+        String totp = formData.getFirst("totp");
+        System.out.println("TOTP: " + totp);
+        if (totp == null || totp.isEmpty()) {
+            context.failure(AuthenticationFlowError.INVALID_CREDENTIALS, Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("{\"error\": \"invalid_grant\",\"error_description\": \"OTP missing\"}")
+                    .type("application/json")
                     .build());
             return;
         }
-        // It is also possible to use the challenge() method to request the user to provide further information to complete the authentication.
-    }
 
-    /**
-     * Call to external API for authentication
-     * @param username Username of the user
-     * @param password Password of the user
-     * @return User authenticated
-     * @throws IOException
-     */
-    private User callExternalApi(String username, String password) throws IOException {
-        CustomExternalApi customExternalApi = new CustomExternalApi();
-        String token = customExternalApi.getTokenAuthenticateToExternalApi(username, password);
-        if(token == null) {
-            return null;
-        }
-        UserResponseDTO userResponseDTO = customExternalApi.getProfileToExternalApi(token);
-        return new User(userResponseDTO.getEmail(), userResponseDTO.getEmail(), userResponseDTO.getName(), userResponseDTO.getSurname(), token, userResponseDTO.getRoles());
+        context.success();
     }
 
     @Override
